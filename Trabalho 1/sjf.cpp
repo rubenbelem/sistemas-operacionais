@@ -24,7 +24,7 @@ struct Process {
 class CompareProcess {
     public:
         bool operator() (Process p1, Process p2) {
-            return p1.process_time < p2.process_time;
+            return p1.process_time > p2.process_time;
         }
 };
 
@@ -39,6 +39,7 @@ int main(int argc, char const *argv[]) {
 
     while(true) {
         cin >> n;
+        if (n == 0) break;
         major_time = 0;
 
         for (int i = 0;i < n; i++) {
@@ -53,17 +54,35 @@ int main(int argc, char const *argv[]) {
 
         unsigned int time = 0;
 
-        while(time < major_time) {
+        while(time <= major_time) {
+            if (to_execute[time].empty()) {
+                time++;
+                continue;
+            }
             vector<Process> v = to_execute[time];
 
             for (int i = 0; i < v.size(); i++) {
+                Process p = v[i];
+                cout << "P" << p.pid << "  " << p.start_time << " | " << p.process_time << "\n";
+
                 process_queue.push(v[i]);
             }
+
+            execute_queue.push(process_queue.top());
+            process_queue.pop();
+
+            time++;
         }
 
-        for (int i = 0; i < process_queue.size(); i++) {
-            Process p = process_queue.top();
+        while(!process_queue.empty()) {
+            execute_queue.push(process_queue.top());
             process_queue.pop();
+        }
+
+        cout << "\n\nESTOU AQUI\n\n";
+        while(!execute_queue.empty()) {
+            Process p = execute_queue.front();
+            execute_queue.pop();
             cout << "P" << p.pid << "  " << p.start_time << " | " << p.process_time << "\n";
         }
     }
