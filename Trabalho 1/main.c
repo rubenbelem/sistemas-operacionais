@@ -78,40 +78,99 @@ char insertFCFS(TProcessPool* pool, TProcess *current, TProcess* process){
   return 1;
 }
 
-char insertSJF(TProcessPool* pool, TProcess *current, TProcess* process){
-  TProcess *last;
+
+// INSERE O PRIMEIRO
+//
+//
+//
+// SE INSERIDO.start <= CORRENTE.start
+//
+// 	SE INSERIDO.start == CORRENTE.start && INSERIDO.TEMPO < CORRENTE.tempo
+// 		INSERE ANTES DO CORRENTE
+// 	SENAO
+// 		INSERE DEPOIS DO CORRENTE
+// 	FIM
+//
+// SENAO SE INSERIDO.start < CORRENTE.end
+// 	//ORDENA COM TODOS ENTRE 1 ATÉ 7s
+// SENAO
+// 	tentaProximo
+// FIM
+
+void recalcFrom(TProcess* process){
+  while(process){
+    if(process->next){
+      process->next->waitTime = (process->endTime - process->next->startTime);
+      process->next->endTime = (process->next->startTime + process->processTime);
+    }
+    process = process->next;
+  }
+}
+
+char orderFrom(TProcess* process, TProcess* current, int threshold){
   while(current){
-    // THERE IS SOMEONE BIGGER THAN THIS ONE
-    if(current->startTime <= process->startTime && process->processTime < current->processTime){
-      process->next = current;
-      process->last = current->last;
-      if(current->last){
-        current->last->next = process;
+    if(current->startTime < threshold){
+      if(current->processTime < process->processTime){
+        current=current->next;
       }else{
-        pool->first = process;
+        process->last = current->last;
+        process->next = current;
+        current->last = current->last->next = process;
+        return 0;
       }
-      current->last = process;
-      return 0;
-    // }else if(current->startTime < process->startTime){
-    //   process->next = current;
-    //   process->last = current->last;
-    //   if(current->last){
-    //     current->last->next = process;
-    //   }else{
-    //     pool->first = process;
-    //   }
-    //   current->last = process;
-    //   return 0;
     }else{
-      last = current;
-      current=current->next;
+      current = null;
     }
   }
 
-  process->next = null;
-  process->last = last;
+  return 1;
+}
+
+char insertSJF(TProcessPool* pool, TProcess *current, TProcess* process){
+  TProcess *last;
+  while(current){
+    if(process->startTime <= current->startTime){
+      if(process->startTime == current->startTime && process->processTime < current->processTime){
+
+        process->last = current->last;
+        process->next = current;
+
+
+        if(current->last){
+          current->last->next = process;
+        }else{
+          pool->first = process;
+          process->endTime = (process->processTime+process->startTime);
+        }
+
+        current->last = process;
+
+        recalcFrom(process);
+        return 0;
+
+      }else{
+
+        process->next = current->next;
+        process->last = current;
+        current->next = process;
+        recalcFrom(current);
+
+        return 0;
+      }
+    }else if(process->startTime < current->endTime){
+      orderFrom(process ,current->next, current->endTime);
+      recalcFrom(current);
+      return 2;
+    }else{
+      last = current;
+      current = current->next;
+    }
+  }
+
+  process->next = last->next;
   last->next = process;
 
+  recalcFrom(current);
 
   return 1;
 }
@@ -124,16 +183,15 @@ void insertProcess(struct t_processPool *pool, int start, int time, int pid){
   process->startTime=start;
   process->pid=pid;
 
-  //pool->amount++;
-
   if(!current){
-    //printf("{inserted at first}");
+
     process->waitTime=0;
-    process->endTime=time;
+    process->endTime=(time+start);
     process->next=process->last=null;
 
     pool->first = process;
     pool->execSum+=process->processTime;
+
   }
   else{
     insertSJF(pool, current, process);
