@@ -79,87 +79,87 @@ char insertFCFS(TProcessPool* pool, TProcess *current, TProcess* process){
 // 	tentaProximo
 // FIM
 
-void recalcFrom(TProcess* process){
-  while(process){
-    if(process->next){
-      process->next->waitTime = (process->endTime-process->next->startTime);
-      process->next->endTime = (process->endTime+process->next->processTime);
-    }
-    process = process->next;
-  }
-}
-
-char orderFrom(TProcess* process, TProcess* current, TProcess *last, int threshold){
-  while(current){
-    if(current->startTime < threshold){
-      if(current->processTime <= process->processTime){
-        last = current;
-        current=current->next;
-      }else{
-        process->last = current->last;
-        process->next = current;
-        current->last = current->last->next = process;
-        return 0;
-      }
-    }else{
-      current = null;
-    }
-  }
-
-  last->next = process;
-  process->last = last;
-
-  return 1;
-}
-
-char insertSJF(TProcessPool* pool, TProcess *current, TProcess* process){
-  TProcess *last;
-  while(current){
-    if(process->startTime <= current->startTime){
-      if(process->startTime == current->startTime && process->processTime < current->processTime){
-
-        process->last = current->last;
-        process->next = current;
-
-
-        if(current->last){
-          current->last->next = process;
-          recalcFrom(process->last);
-        }else{
-          pool->first = process;
-          process->endTime = (process->processTime+process->startTime);
-          recalcFrom(process);
-        }
-
-        current->last = process;
-
-        return 'A';
-
-      }else{
-
-        process->next = current->next;
-        process->last = current;
-        current->next = process;
-        recalcFrom(current);
-
-        return 'A';
-      }
-    }else if(process->startTime < current->endTime){
-      orderFrom(process ,current->next, current, current->endTime);
-      recalcFrom(current);
-      return 'C';
-    }else{
-      last = current;
-      current = current->next;
-    }
-  }
-
-  process->next = last->next;
-  last->next = process;
-
-  recalcFrom(process->last);
-  return 'B';
-}
+// void recalcFrom(TProcess* process){
+//   while(process){
+//     if(process->next){
+//       process->next->waitTime = (process->endTime-process->next->startTime);
+//       process->next->endTime = (process->endTime+process->next->processTime);
+//     }
+//     process = process->next;
+//   }
+// }
+//
+// char orderFrom(TProcess* process, TProcess* current, TProcess *last, int threshold){
+//   while(current){
+//     if(current->startTime < threshold){
+//       if(current->processTime <= process->processTime){
+//         last = current;
+//         current=current->next;
+//       }else{
+//         process->last = current->last;
+//         process->next = current;
+//         current->last = current->last->next = process;
+//         return 0;
+//       }
+//     }else{
+//       current = null;
+//     }
+//   }
+//
+//   last->next = process;
+//   process->last = last;
+//
+//   return 1;
+// }
+//
+// char insertSJF(TProcessPool* pool, TProcess *current, TProcess* process){
+//   TProcess *last;
+//   while(current){
+//     if(process->startTime <= current->startTime){
+//       if(process->startTime == current->startTime && process->processTime < current->processTime){
+//
+//         process->last = current->last;
+//         process->next = current;
+//
+//
+//         if(current->last){
+//           current->last->next = process;
+//           recalcFrom(process->last);
+//         }else{
+//           pool->first = process;
+//           process->endTime = (process->processTime+process->startTime);
+//           recalcFrom(process);
+//         }
+//
+//         current->last = process;
+//
+//         return 'A';
+//
+//       }else{
+//
+//         process->next = current->next;
+//         process->last = current;
+//         current->next = process;
+//         recalcFrom(current);
+//
+//         return 'A';
+//       }
+//     }else if(process->startTime < current->endTime){
+//       orderFrom(process ,current->next, current, current->endTime);
+//       recalcFrom(current);
+//       return 'C';
+//     }else{
+//       last = current;
+//       current = current->next;
+//     }
+//   }
+//
+//   process->next = last->next;
+//   last->next = process;
+//
+//   recalcFrom(process->last);
+//   return 'B';
+// }
 
 void insertProcess(TProcessPool *pool, int start, int time, int pid){
   TProcess *current = pool->first;
@@ -180,7 +180,7 @@ void insertProcess(TProcessPool *pool, int start, int time, int pid){
 
   }
   else{
-    insertSJF(pool, current, process);
+    insertFCFS(pool, current, process);
   }
 
   TProcess *p = pool->first;
@@ -191,28 +191,38 @@ void insertProcess(TProcessPool *pool, int start, int time, int pid){
 
 }
 
-void printPool(TProcessPool *pool){
+void printPool(TProcessPool *pool, int test, int exit){
   TProcess *process = pool->first, *toFree;
+  int *exitBuffer = malloc(sizeof(int)*exit);
   int execSum=0;
   int waitSum=0;
-
-  printf("-=-=- ProcessPool %p -=-=- (amount : %u)\nSTART EXECUTION WAIT END\n", pool, pool->amount);
+  int order=0;
+  printf("Teste %d\n", test);
+  //printf("-=-=- ProcessPool %p -=-=- (amount : %u)\nSTART EXECUTION WAIT END\n", pool, pool->amount);
 
   while(process){
-    printf("[PID : %d] {last : %u} <- %u %u %u %u-> {next : %u}\n", process->pid, (process->last? process->last->pid : 0), process->startTime, process->processTime, process->waitTime, process->endTime, (process->next? process->next->pid : 0));
+    //printf("[PID : %d] [%u %u %u %u]\n", process->pid, process->startTime, process->processTime, process->waitTime, process->endTime);
+    exitBuffer[order] = process->pid;
     execSum += process->endTime-process->startTime;
     waitSum += process->waitTime;
     toFree = process;
     process = process->next;
     free(toFree);
+    order++;
+  }
+  printf("Tempo medio de execucao: %f\nTempo medio de espera: %f \n", ((float) execSum / (float)pool->amount), (float) waitSum / (float)pool->amount);
+
+  for(int i=0;i<exit;i++){
+    printf("P%d ",exitBuffer[i]);
   }
 
-  printf("\n\nAnalytics : (amount : %u / execSum : %u / waitSum : %u)\n", pool->amount, execSum, waitSum);
-  printf("Bare informations : \n \t - Execution time average : %f \n\t - Waiting time average : %f \n", ((float) execSum / (float)pool->amount), (float) waitSum / (float)pool->amount);
+  free(exitBuffer);
+  //printf("\n\nAnalytics : (amount : %u / execSum : %u / waitSum : %u)\n", pool->amount, execSum, waitSum);
+  //printf("Bare informations : \n \t - Execution time average : %g \n\t - Waiting time average : %g \n", ((float) execSum / (float)pool->amount), (float) waitSum / (float)pool->amount);
 }
 
 int main(){
-  int pNumber, pStart, pTime, pid=1;
+  int pNumber, pStart, pTime, pid=1, test=1;
   TProcessPool *pool=createProcessPool();
 
   while(scanf("%d", &pNumber)==1 && pNumber){
@@ -223,7 +233,8 @@ int main(){
       insertProcess(pool, pStart, pTime, pid);
       pid++;
     }
-    printPool(pool);
+    printPool(pool, test++, pNumber);
+    printf("\n\n");
     pool->amount=0;
     pool->first=NULL;
     pid = 1;
