@@ -28,12 +28,14 @@ class CompareProcess {
         }
 };
 
+class Scheduler {
+    
+};
+
 void execute_step(queue<Process>& ex_queue) {
     if (!ex_queue.empty()) {
         Process &p = ex_queue.front();
         p.process_time--;
-
-
 
         if(p.process_time == 0) {
             ex_queue.pop();
