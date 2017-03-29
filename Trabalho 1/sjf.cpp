@@ -13,6 +13,11 @@ enum class ProcessState : int {
 	finished
 };
 
+enum class SchedulingPolice : int {
+	SJF,
+	FCFS
+};
+
 struct Process {
     unsigned int pid;
     unsigned int arrival_time;
@@ -20,6 +25,8 @@ struct Process {
     unsigned int instructions;
     unsigned int wait_time;
     unsigned int end_time;
+    unsigned int turnaround_time;
+
     ProcessState state;
 
     Process() {
@@ -50,6 +57,19 @@ class Scheduler {
 		double average_runtime;
 		double average_wait_time;
 
+		void prepare_next_ready() {
+			if (!this->waiting_queue.empty()) {
+				this->execute_queue.push(this->waiting_queue.top());
+				this->waiting_queue.pop();
+			}
+		}
+
+		void put_to_run(Process& p) {
+			p.start_time = cnt_time;
+			p.wait_time = p.start_time - p.arrival_time;
+			p.state = ProcessState::running;
+		}
+
 	public:
 		Scheduler() {
 			cnt_time = 0;
@@ -62,21 +82,28 @@ class Scheduler {
 		    if (!execute_queue.empty()) {
 		        Process &p = execute_queue.front();
 
-		        if (p.state == ProcessState::ready) {
-		        	p.start_time = cnt_time;
-		        	p.wait_time = p.start_time - p.arrival_time;
+		        if (p.state == ProcessState::running) {
+		        	p.instructions--;
 
-		        	p.state = ProcessState::running;
+		        	if(p.instructions == 0) {
+						p.end_time = cnt_time;
+						p.turnaround_time = p.end_time - p.arrival_time;
+						p.state = ProcessState::finished;
+
+						execution_order.push_back(p);
+						execute_queue.pop();
+
+						if (!waiting_queue.empty()) {
+							Process pp = waiting_queue.top();
+							prepare_next_ready();
+						}
+					}
 		        }
 
-		        p.instructions--;
 
-		        if(p.instructions == 0) {
-		        	p.end_time = cnt_time;
-		        	p.state = ProcessState::finished;
 
-		        	execution_order.push_back(p);
-		            execute_queue.pop();
+		        if (execute_queue.front().state == ProcessState::ready) {
+		        	put_to_run(execute_queue.front());
 		        }
 
 		        return true;
@@ -86,12 +113,11 @@ class Scheduler {
 		}
 
 		void insert_process(Process& p) {
-			if (p.start_time > greater_time) greater_time = p.start_time;
+			if (p.arrival_time > greater_time) greater_time = p.arrival_time;
 
-			p.arrival_time = cnt_time;
 			p.state = ProcessState::ready;
 
-			to_execute[p.start_time].push_back(p);
+			to_execute[p.arrival_time].push_back(p);
 
 		}
 
@@ -111,15 +137,12 @@ class Scheduler {
 		void run_all() {
 			while(cnt_time <= greater_time) {
 				if (to_execute[cnt_time].empty()) {
-					cnt_time++;
-
 					execute_step();
 
+					cnt_time++;
+
 					if (execute_queue.empty()) {
-						if (!waiting_queue.empty()) {
-							execute_queue.push(waiting_queue.top());
-							waiting_queue.pop();
-						}
+						prepare_next_ready();
 					}
 					continue;
 				}
@@ -130,14 +153,11 @@ class Scheduler {
 					waiting_queue.push(v[i]);
 				}
 
-				execute_step();
-
 				if (execute_queue.empty()) {
-					if (!waiting_queue.empty()) {
-						execute_queue.push(waiting_queue.top());
-						waiting_queue.pop();
-					}
+					prepare_next_ready();
 				}
+
+				execute_step();
 
 				cnt_time++;
 			}
@@ -157,10 +177,13 @@ class Scheduler {
 			int n = execution_order.size();
 			for (int i = 0; i < n; i++) {
 				average_wait_time += execution_order[i].wait_time;
+				average_runtime += execution_order[i].turnaround_time;
 			}
 
 			average_wait_time /= (double) n;
+			average_runtime /= (double) n;
 
+			cout << "Tempo medio de execucao: " << average_runtime << "s" << endl;
 			cout << "Tempo medio de espera: " << average_wait_time << "s" << endl;
 
 			for (int i = 0; i < n; i++) {
@@ -186,7 +209,7 @@ int main(int argc, char const *argv[]) {
         for (i = 0;i < n; i++) {
             Process p;
             p.pid = i + 1;
-            cin >> p.start_time >> p.instructions;
+            cin >> p.arrival_time >> p.instructions;
 
             scheduler.insert_process(p);
         }
@@ -205,5 +228,3 @@ int main(int argc, char const *argv[]) {
 
     return 0;
 }
-
-
